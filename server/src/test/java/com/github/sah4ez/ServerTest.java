@@ -3,6 +3,8 @@ package com.github.sah4ez;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.junit.Assert.assertNotNull;
+
 /**
  * Unit test for simple Server.
  */
@@ -23,5 +25,7 @@ public class ServerTest
         server.listen(port);
 
         //Assert
+        assertNotNull(server.getServerSocket());
     }
+
 }
