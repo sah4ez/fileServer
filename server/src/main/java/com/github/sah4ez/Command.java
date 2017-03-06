@@ -4,22 +4,18 @@ package com.github.sah4ez;
  * Created by aleksandr on 05.03.17.
  */
 public enum Command {
-    UPLOAD("UPLOAD"),
-    FIND("FIND"),
-    DOWNLOAD("DOWNLOAD"),
-    DELETE("DELETED");
+    UPLOAD(0),
+    FIND(1),
+    DOWNLOAD(2),
+    DELETE(3);
 
-    private String name;
+    private int id;
 
-    Command(String name) {
-        this.name = name;
+    Command(int id) {
+        this.id = id;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
+    public int getId() {
+        return id;
     }
 }

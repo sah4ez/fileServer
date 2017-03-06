@@ -13,7 +13,7 @@
     <bytecodeTargetLevel>
       <module name="client" target="1.5" />
       <module name="competentum" target="1.5" />
-      <module name="server" target="1.7" />
+      <module name="server" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
