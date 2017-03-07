@@ -11,14 +11,14 @@ public class File implements Serializable {
     public static final long serialVersionUID = 1334423175652732159L;
     private final String fileName;
     private final byte[] bytes;
-    private final int md5;
+    private final String md5HEX;
 
     public static final int OFFSET = 1;
 
-    public File(String fileName, byte[] bytes, int md5) throws NoSuchAlgorithmException, DigestException {
+    public File(String fileName, byte[] bytes, String md5HEX) throws NoSuchAlgorithmException, DigestException {
         this.fileName = fileName;
         this.bytes = bytes;
-        this.md5 = md5;
+        this.md5HEX = md5HEX;
     }
 
     public File(byte[] bytes) throws NoSuchAlgorithmException, IOException, ClassNotFoundException {
@@ -26,7 +26,7 @@ public class File implements Serializable {
         ObjectInput in = new ObjectInputStream(inputStream);
         File file = (File) in.readObject();
         this.fileName = file.getFileName();
-        this.md5 = file.getMd5();
+        this.md5HEX = file.getMd5HEX();
         this.bytes = file.getBytes();
     }
 
@@ -35,28 +35,20 @@ public class File implements Serializable {
     }
 
     public byte[] getBytes() {
-//        ByteArrayInputStream baos = new ByteArrayInputStream(bytes);
-//        ObjectInputStream oos = null;
-//        try {
-//            oos = new ObjectInputStream(baos);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//        if (oos == null) return new byte[0];
-
-//        return IOUtils.toByteArray();
         return bytes;
     }
 
-    public int getMd5() {
-        return md5;
+    public String getMd5HEX() {
+        return md5HEX;
     }
 
-    public byte[] removeOffset(byte[] from, byte[] to){
-        for (int i = OFFSET; i < from.length; i++){
-            to[i-1] = from[i];
-        }
-        return to;
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("File{");
+        sb.append("fileName='").append(fileName).append('\'');
+        sb.append(", md5HEX='").append(md5HEX).append('\'');
+        sb.append('}');
+        return sb.toString();
     }
 }
 

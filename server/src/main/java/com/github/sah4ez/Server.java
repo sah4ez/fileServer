@@ -1,5 +1,6 @@
 package com.github.sah4ez;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +13,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-
-import static com.github.sah4ez.File.OFFSET;
 
 /**
  * Hello world!
@@ -23,11 +21,9 @@ public class Server {
     private static Server server;
     private static Logger log = LoggerFactory.getLogger(Server.class);
     private final String path;
-    private final ConcurrentHashMap<Integer, String> hashMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> md5ToFileNameMap = new ConcurrentHashMap<>();
     private ServerSocket serverSocket;
     private Socket fromClient;
-    private ByteArrayInputStream in = null;
-    private OutputStream out = null;
 
     public Server(String path) {
         this.path = path;
@@ -43,6 +39,9 @@ public class Server {
         }
     }
 
+    public void initMap(){
+
+    }
 
     public void listen(int port) {
         try {
@@ -55,13 +54,13 @@ public class Server {
     }
 
     public void accept() {
-        if (serverSocket == null) {
+        if (getServerSocket() == null) {
             log.warn("Server socket socket NULL!");
             return;
         }
 
         try {
-            fromClient = serverSocket.accept();
+            fromClient = getServerSocket().accept();
             log.info("Accept client...");
         } catch (IOException e) {
             e.printStackTrace();
@@ -70,20 +69,22 @@ public class Server {
     }
 
     public byte[] read() {
-        if (fromClient == null) {
+        if (getFromClient() == null) {
             log.warn("Client socket NULL!");
             return null;
         }
 
         byte[] bytes = null;
-        try (InputStream inputStream = fromClient.getInputStream()) {
-            bytes = IOUtils.toByteArray(inputStream);
+        try (InputStream inputStream = getFromClient().getInputStream()) {
+            if (inputStream != null) {
+                bytes = IOUtils.toByteArray(inputStream);
+            }
         } catch (IOException e) {
             e.printStackTrace();
             log.error("Error creating buffer reader.");
         }
 
-        if (bytes.length <= 1) return null;
+        if (bytes == null || bytes.length <= 1) return null;
 
         return bytes;
     }
@@ -93,71 +94,181 @@ public class Server {
 
         int command = read[0];
 
-        int offset = 1;
-        File file = null;
-
         if (Integer.compare(command, Command.UPLOAD.getId()) == 0) {
-            try {
-                String name = path + "test.txt";
-                try {
-                    file = new File(read);
-                } catch (NoSuchAlgorithmException | ClassNotFoundException e) {
-                    e.printStackTrace();
-                }
-                if (file == null) return;
-
-                if (!hashMap.containsKey(file.getMd5())) {
-                    FileOutputStream fos = new FileOutputStream(name);
-                    fos.write(file.getBytes());
-                    fos.close();
-
-                    hashMap.putIfAbsent(file.getMd5(), file.getFileName());
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            upload(read);
         } else if (Integer.compare(command, Command.FIND.getId()) == 0) {
-            String request = new String(read, offset, read.length);
-            HashMap<Integer, String> result = new HashMap<>(25);
-            hashMap.forEach((id, name) -> {
-                if (name.contains(request) && result.size() < 25) {
-                    result.putIfAbsent(id, name);
-                }
-            });
-            try {
-                fromClient.getOutputStream().write(result.toString().getBytes());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            find(read);
         } else if (Integer.compare(command, Command.DOWNLOAD.getId()) == 0) {
-            Integer request = Integer.valueOf(new String(read, offset, read.length));
-            if (hashMap.containsKey(request)) {
-                try {
-                    FileInputStream fis = new FileInputStream(hashMap.get(request));
-                    MessageDigest md5Algorithm = MessageDigest.getInstance("MD5");
-                    byte[] bytes = IOUtils.toByteArray(fis);
-                    File load = new File(hashMap.get(request),
-                            bytes,
-                            md5Algorithm.digest(new byte[8000], OFFSET, bytes.length));
-                    fromClient.getOutputStream().write(load.getBytes());
-                } catch (IOException | NoSuchAlgorithmException | DigestException e) {
-                    e.printStackTrace();
-                }
-            }
+            download(read);
         } else if (Integer.compare(command, Command.DELETE.getId()) == 0) {
-            Integer request = Integer.valueOf(new String(read, offset, read.length));
-            if (hashMap.containsKey(request)) {
-                java.io.File load = new java.io.File(hashMap.get(request));
-                if (load.delete()) {
-                    hashMap.remove(request);
-                }
+            delete(read);
+        }
+    }
+
+    public void upload(byte[] bytes) {
+        File file = file(bytes);
+        if (file == null) {
+            log.info("Create nullable file.");
+            return;
+        }
+
+        String name = path + file.getFileName();
+        if (!getMd5ToFileNameMap().containsKey(file.getMd5HEX())) {
+            save(outStream(name), file.getBytes());
+
+            getMd5ToFileNameMap().putIfAbsent(file.getMd5HEX(), path + file.getFileName());
+            log.info("Upload file {} with md5 {}", path + file.getFileName(), file.getMd5HEX());
+        }
+    }
+
+    public void find(byte[] bytes) {
+        String request = new String(bytes, File.OFFSET, bytes.length - File.OFFSET);
+
+        if ("".equals(request)) {
+            log.info("Found empty name.");
+            return;
+        }
+
+        log.info("Find file with name {}", request);
+        HashMap<String, String> result = new HashMap<>(25);
+        getMd5ToFileNameMap().forEach((id, name) -> {
+            if (name.contains(request) && result.size() < 25) {
+                result.putIfAbsent(id, name);
+            }
+        });
+        response(result.toString());
+    }
+
+    public void download(byte[] bytes) {
+        String request = new String(bytes, File.OFFSET, bytes.length - File.OFFSET);
+        if (getMd5ToFileNameMap().containsKey(request)) {
+            try {
+                File load = new File(getMd5ToFileNameMap().get(request), fileByte(request), getMd5(bytes));
+                response(load);
+            } catch (NoSuchAlgorithmException | DigestException e) {
+                e.printStackTrace();
             }
         }
     }
 
-    private Function<? super String, ? extends String> search() {
+    public void delete(byte[] bytes) {
+        String request = new String(bytes, File.OFFSET, bytes.length - File.OFFSET);
+        if (getMd5ToFileNameMap().containsKey(request)) {
+            java.io.File load = new java.io.File(getMd5ToFileNameMap().get(request));
+            if (load.delete()) {
+                getMd5ToFileNameMap().remove(request);
+            }
+        }
+    }
 
+    public FileOutputStream outStream(String name) {
+        if (name == null) {
+            log.error("Name file is nullable.");
+            return null;
+        }
+        try {
+            return new FileOutputStream(name);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            log.error("Can't create file output stream for write to disk.");
+        }
         return null;
+    }
+
+    public FileInputStream inStream(String name) {
+        if (name == null) {
+            log.error("Name file is nullable.");
+            return null;
+        }
+        try {
+            return new FileInputStream(name);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            log.error("Can't create file input stream for read from disk.");
+        }
+        return null;
+    }
+
+    public File file(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return null;
+        try {
+            return new File(bytes);
+        } catch (NoSuchAlgorithmException | IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+            log.error("Don't load file from byte.");
+        }
+        return null;
+    }
+
+    public void save(FileOutputStream fos, byte[] bytes) {
+        if (fos == null) return;
+
+        try {
+            fos.write(bytes);
+            fos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            log.error("Can't save file.");
+        }
+    }
+
+    public void response(String result) {
+        try {
+            if (getFromClient() == null || getFromClient().getOutputStream() == null) return;
+
+            getFromClient().getOutputStream().write(result.getBytes());
+            log.info("Response {}", result);
+        } catch (IOException e) {
+            e.printStackTrace();
+            log.error("Can't response found file.");
+        }
+    }
+
+    public void response(File result) {
+        try {
+            if (getFromClient() == null || getFromClient().getOutputStream() == null) return;
+
+            getFromClient().getOutputStream().write(result.getBytes());
+            log.info("Response {}", result);
+        } catch (IOException e) {
+            e.printStackTrace();
+            log.error("Can't response file.");
+        }
+    }
+
+    public byte[] fileByte(String request) {
+        if (request == null) {
+            log.error("Request is null.");
+            return null;
+        }
+        String path = getMd5ToFileNameMap().get(request);
+
+        if (path == null) {
+            log.error("Path to file is null.");
+            return null;
+        }
+
+        try {
+            return IOUtils.toByteArray(inStream(path));
+        } catch (IOException e) {
+            e.printStackTrace();
+            log.error("Can't serialize input stream to byte array.");
+        }
+        return null;
+    }
+
+    public String getMd5(byte[] bytes) {
+        String algorithmName = "MD5HEX";
+        MessageDigest md5Algorithm = null;
+
+        if (bytes == null || bytes.length == 0) {
+            log.error("Byte array for algorithm {} empty or null.", algorithmName);
+            return "0x0000";
+        }
+
+        String result = DigestUtils.md5Hex(bytes);
+        log.info("Get {} file: {}", algorithmName, result);
+        return result;
     }
 
     public ServerSocket getServerSocket() {
@@ -174,5 +285,9 @@ public class Server {
 
     public void setFromClient(Socket fromClient) {
         this.fromClient = fromClient;
+    }
+
+    public ConcurrentHashMap<String, String> getMd5ToFileNameMap() {
+        return md5ToFileNameMap;
     }
 }

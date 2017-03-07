@@ -1,6 +1,7 @@
 package com.github.sah4ez;
 
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.SerializationUtils;
 
@@ -8,7 +9,6 @@ import java.io.File;
 import java.io.*;
 import java.net.Socket;
 import java.security.DigestException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 import static com.github.sah4ez.File.OFFSET;
@@ -57,11 +57,10 @@ public class Client {
 
         com.github.sah4ez.File receive = null;
         try {
-            MessageDigest md5Algorithm = MessageDigest.getInstance("MD5");
             byte[] bytes = IOUtils.toByteArray(fis);
             receive = new com.github.sah4ez.File(file.getName(),
                     bytes,
-                    md5Algorithm.digest(new byte[8000], OFFSET, bytes.length));
+                    DigestUtils.md5Hex(bytes));
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (DigestException e) {
