@@ -1,5 +1,7 @@
 package com.github.sah4ez;
 
+import org.apache.commons.lang.SerializationUtils;
+
 import java.io.*;
 import java.security.DigestException;
 import java.security.NoSuchAlgorithmException;
@@ -22,9 +24,9 @@ public class File implements Serializable {
     }
 
     public File(byte[] bytes) throws NoSuchAlgorithmException, IOException, ClassNotFoundException {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes, OFFSET, bytes.length);
-        ObjectInput in = new ObjectInputStream(inputStream);
-        File file = (File) in.readObject();
+//        ByteArrayInputStream inputStream = new ByteArrayInputStream(bytes, OFFSET, bytes.length);
+//        ObjectInput in = new ObjectInputStream(inputStream);
+        File file = (File) SerializationUtils.deserialize(bytes);
         this.fileName = file.getFileName();
         this.md5HEX = file.getMd5HEX();
         this.bytes = file.getBytes();
@@ -49,6 +51,10 @@ public class File implements Serializable {
         sb.append(", md5HEX='").append(md5HEX).append('\'');
         sb.append('}');
         return sb.toString();
+    }
+
+    public void save() {
+        System.out.println("MOCK. Need saving file.");
     }
 }
 

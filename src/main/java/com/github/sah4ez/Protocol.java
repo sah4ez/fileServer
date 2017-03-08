@@ -19,6 +19,13 @@ import java.util.HashMap;
  * Created by aleksandr on 08.03.17.
  */
 public class Protocol {
+    public static final String UPLOAD = "upload";
+    public static final String FIND = "find";
+    public static final String DOWNLOAD = "download";
+    public static final String DELETE = "delete";
+    public static final String FAIL = "fail";
+    public static final String QUIT = "quit";
+
     private static Logger log = LoggerFactory.getLogger(Protocol.class);
     private Server server;
 
@@ -28,33 +35,24 @@ public class Protocol {
 
     public String getResponse(String command, String body) {
 
-        String result = "fail";
+        String result = FAIL;
 
         switch (command) {
-            case "upload": {
-                String text = body.replace("upload", "");
-                String[] byteValues = text.substring(2, text.length() - 1).split(",");
-                byte[] bytes = new byte[byteValues.length];
-
-                for (int i = 0, len = bytes.length; i < len; i++) {
-                    bytes[i] = Byte.parseByte(byteValues[i].trim());
-                }
-                result = upload(bytes);
+            case UPLOAD: {
+                String text = body.replaceFirst(UPLOAD, "");
+                result = upload(getBytes(text));
                 break;
             }
-            case "find": {
-                String text = body.replace("find", "");
-                result = find(text.trim());
+            case FIND: {
+                result = find(body.replaceFirst(FIND, "").trim());
                 break;
             }
-            case "download": {
-                String text = body.replace("download", "");
-                result = download(text.trim());
+            case DOWNLOAD: {
+                result = download(body.replaceFirst(DOWNLOAD, "").trim());
                 break;
             }
-            case "delete": {
-                String text = body.replace("delete", "");
-                result = delete(text.trim());
+            case DELETE: {
+                result = delete(body.replaceFirst(DELETE, "").trim());
                 break;
             }
         }
@@ -80,17 +78,18 @@ public class Protocol {
 
     public String find(String request) {
         if ("".equals(request)) {
-            log.info("Found empty name.");
+            log.error("Found empty name.");
             return "{}";
         }
 
-        log.info("Find file with name {}", request);
+        log.debug("Find file with name {}", request);
         HashMap<String, String> result = new HashMap<>(25);
         server.getMd5ToFileNameMap().forEach((id, name) -> {
-            if (name.contains(request) && result.size() < 25) {
+            if (name.contains(request) && result.size() <= 25) {
                 result.putIfAbsent(id, name);
             }
         });
+        log.debug("Found {} files", result.toString());
         return result.toString();
     }
 
@@ -103,7 +102,10 @@ public class Protocol {
                 e.printStackTrace();
             }
         }
-        if (load == null) return "fail";
+        if (load == null) {
+            log.error("Not found file with ID {} ", request);
+            return FAIL;
+        }
         return Arrays.toString(SerializationUtils.serialize(load));
     }
 
@@ -112,6 +114,7 @@ public class Protocol {
             java.io.File load = new java.io.File(server.getMd5ToFileNameMap().get(request));
             if (load.delete()) {
                 server.getMd5ToFileNameMap().remove(request);
+                log.debug("Delete file {}", request);
                 return "ok";
             }
         }
@@ -198,5 +201,15 @@ public class Protocol {
             e.printStackTrace();
             log.error("Can't save file.");
         }
+    }
+
+    public static byte[] getBytes(String string){
+        String[] byteValues = string.substring(2, string.length() - 1).trim().split(",");
+        byte[] bytes = new byte[byteValues.length];
+
+        for (int i = 0, len = bytes.length; i < len; i++) {
+            bytes[i] = Byte.parseByte(byteValues[i].trim());
+        }
+        return bytes;
     }
 }

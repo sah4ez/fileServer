@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -22,6 +23,7 @@ public class Server {
 
     public Server(Integer port, String path) {
         this.path = path;
+        log.info("Start on {} to {}", port, path);
         try (
                 ServerSocket serverSocket = new ServerSocket(port);
                 Socket clientSocket = serverSocket.accept();
@@ -34,12 +36,13 @@ public class Server {
             out.println("OK");
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
+                log.info("Request: {}:{} :: {} ", clientSocket.getInetAddress(), clientSocket.getPort(), inputLine);
                 String[] command = inputLine.split(" ");
                 String fromServer = protocol.getResponse(command[0], inputLine);
                 out.println(fromServer);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("IOException\n {}", Arrays.toString(e.getStackTrace()));
         }
     }
 
