@@ -11,8 +11,9 @@
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="client" target="1.5" />
+      <module name="client" target="1.8" />
       <module name="competentum" target="1.5" />
+      <module name="deleted" target="1.8" />
       <module name="server" target="1.8" />
     </bytecodeTargetLevel>
   </component>
