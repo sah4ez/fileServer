@@ -1,4 +1,4 @@
-package com.github.sah4ez;
+package com.github.sah4ez.protocol;
 
 import org.apache.commons.lang.SerializationUtils;
 

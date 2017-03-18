@@ -1,5 +1,6 @@
 package com.github.sah4ez;
 
+import com.github.sah4ez.protocol.Protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,7 @@ public class Server {
                 String fromServer = protocol.getResponse(command[0], inputLine);
                 out.println(fromServer);
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("IOException\n {}", Arrays.toString(e.getStackTrace()));
         }
     }
